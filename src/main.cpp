@@ -1,98 +1,101 @@
 #include <Arduino.h>
+// #include <Wire.h>
+// #include <HardwareSerial.h>
 #include <SPI.h>
-#include <ASM330LHHSensor.h>
-// #include <LSM6DSOSensor.h>
+#include "LSM6DSOSensor.h"
 
-SPIClass dev_spi(PD_7, PG_9, PG_11);
+// initialize our sensor buses 
+SPIClass SENSORS_SPI(PD7, PG9, PG11);
+// TwoWire GPS_I2C(GPS_I2C_SDA, GPS_I2C_SCL);
+// HardwareSerial GPS_SERIAL(GPS_SERIAL_RX, GPS_SERIAL_TX);
+// TwoWire CONNECTOR_I2C(CONNECTOR_I2C_SDA, CONNECTOR_I2C_SCL);
+// SPIClass CAMERA_SPI(CAMERA_MOSI, CAMERA_MISO, CAMERA_SCK);
+// HardwareSerial RADIO_SERIAL(RADIO_SERIAL_RX, RADIO_SERIAL_TX);
 
-#define ASM_CS PD_5
-#define LSM_CS PB_4
-#define LIS_CS PA_15
-#define LPS_CS PD_0
-
-ASM330LHHSensor AccGyr(&dev_spi, ASM_CS, 2000000);
-// LSM6DSOSensor AccGyr(&dev_spi, LSM_CS, 2000000);
-
+LSM6DSOSensor accGyr(&SENSORS_SPI, SENSORS_LSM_CS);
 
 void setup()
 {
-    SerialUSB.begin();
-    while(!SerialUSB.available()){};
-    pinMode(LED_GREEN, OUTPUT);
-    pinMode(LED_BLUE, OUTPUT);
+    SerialUSB.begin(); while(!SerialUSB.available()){};
     pinMode(LED_RED, OUTPUT);
-    SerialUSB.println("preinit");
-    // digitalWrite(LED_GREEN, LOW);
-    dev_spi.setMISO(PG_9);
-    dev_spi.setMOSI(PD_7);
-    dev_spi.setSCLK(PG_11);
-    
-    dev_spi.begin();
-    // dev_spi.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE3));
+    #ifdef HAL_SPI_MODULE_ENABLED
+    SerialUSB.println("spi enabled!");
+    #endif
+    SerialUSB.println("help");
 
-    pinMode(PF4_ALT0, INPUT_PULLDOWN);
-    // pinMode(pinNametoDigitalPin(PB_3_ALT2), INPUT_PULLDOWN);
-
-    pinMode(LPS_CS, OUTPUT); digitalWrite(LPS_CS, HIGH);
-    pinMode(LIS_CS, OUTPUT); digitalWrite(LIS_CS, HIGH);
-    pinMode(ASM_CS, OUTPUT); //digitalWrite(ASM_CS, HIGH);
-    pinMode(LSM_CS, OUTPUT); digitalWrite(LSM_CS, HIGH);
-
-    pinMode(ASM_CS, OUTPUT); digitalWrite(ASM_CS, LOW);
-    // digitalWrite(LSM_CS, LOW);
-
-    SerialUSB.println("init");
-    SerialUSB.println(AccGyr.begin());
-
-    SerialUSB.println(AccGyr.Set_X_ODR(104.0));
-    SerialUSB.println(AccGyr.Set_G_ODR(104.0));
-    SerialUSB.println(AccGyr.Set_X_FS(16));
-    SerialUSB.println(AccGyr.Set_G_FS(4000));
-
-    SerialUSB.println("enable modes");
-    SerialUSB.println(AccGyr.Enable_X());
-    SerialUSB.println(AccGyr.Enable_G());
-
-    delay(50);
-    SerialUSB.println("have data ready?");
-    uint8_t status;
-    AccGyr.Get_X_DRDY_Status(&status);
-    SerialUSB.println(status);
-    AccGyr.Get_G_DRDY_Status(&status);
-    SerialUSB.println(status);
+    const PinMap *map = PinMap_SPI_MOSI;
+    while (map->pin != NC) {
+        SerialUSB.print("pin: 0x");
+        SerialUSB.print(map->pin, HEX);
+        SerialUSB.print("  PD_7 is: 0x");
+        SerialUSB.println(PD_7, HEX);
+        map++;
+    }
 
 
-    int32_t st;
-    AccGyr.Get_X_FS(&st);
-    SerialUSB.println(st);
-    AccGyr.Get_G_FS(&st);
-    SerialUSB.println(st);
-  
 
-    // AccGyr.Enable_X();
-    // AccGyr.Enable_G();
+    Serial.println("spi begin");
+
+    SENSORS_SPI.begin();
+
+        SerialUSB.print("PD7  MODER: "); SerialUSB.println((GPIOD->MODER >> 14) & 0x3); // expect 2 (AF)
+    SerialUSB.print("PD7  AFR:   "); SerialUSB.println((GPIOD->AFR[0] >> 28) & 0xF); // expect 5 (AF5_SPI1)
+    SerialUSB.print("PG9  MODER: "); SerialUSB.println((GPIOG->MODER >> 18) & 0x3); // expect 2
+    SerialUSB.print("PG11 MODER: "); SerialUSB.println((GPIOG->MODER >> 22) & 0x3); // expect 2
+
+
+
+
+SerialUSB.println("help");
+    // Send a test byte with CS manually controlled
+    pinMode(SENSORS_LSM_CS, OUTPUT);
+    digitalWrite(SENSORS_LSM_CS, HIGH);
+
+    digitalWrite(SENSORS_LSM_CS, LOW);
+    byte result = SENSORS_SPI.transfer(0xAA);
+    digitalWrite(SENSORS_LSM_CS, HIGH);
+
+    SerialUSB.print("Transfer result: 0x");
+    SerialUSB.println(result, HEX);
+
+
+
+
+
+    SerialUSB.println(accGyr.begin());
+SerialUSB.println("help");
+    accGyr.Enable_X();
+    accGyr.Enable_G();
+    accGyr.Set_G_FS(2000);
+    accGyr.Set_G_ODR(100);
+    accGyr.Set_X_FS(32);
+    accGyr.Set_X_ODR(500);
 }
 
 void loop()
 {
-    digitalToggle(LED_GREEN);
-    delay(500);
+    
+    digitalWrite(LED_RED,HIGH);
+    digitalWrite(PD7,HIGH);
+    
+    delay(100);
+    digitalWrite(LED_RED,LOW);
+    digitalWrite(PD7,LOW);
+    
+    delay(100);
 
-    int32_t accelerometer[3] = {};
-    int32_t gyroscope[3] = {};
-    int status;
-    status = AccGyr.Get_X_Axes(accelerometer);
-    if(status !=0){SerialUSB.println("ERROR");}
-    status = AccGyr.Get_G_Axes(gyroscope);
-    if(status !=0){SerialUSB.println("ERROR");}
+          int32_t accelerometer[3];
+  int32_t gyroscope[3];
+  accGyr.Get_X_Axes(accelerometer);
+  accGyr.Get_G_Axes(gyroscope);
 
   // Output data.
-  SerialUSB.print("LSM6DSO: | Acc[mg]: ");
-  SerialUSB.print(accelerometer[0]);
+  SerialUSB.print("| Acc[g]: ");
+  SerialUSB.print(accelerometer[0]*2/1000.0);
   SerialUSB.print(" ");
-  SerialUSB.print(accelerometer[1]);
+  SerialUSB.print(accelerometer[1]*2/1000.0);
   SerialUSB.print(" ");
-  SerialUSB.print(accelerometer[2]);
+  SerialUSB.print(accelerometer[2]*2/1000.0);
   SerialUSB.print(" | Gyr[mdps]: ");
   SerialUSB.print(gyroscope[0]);
   SerialUSB.print(" ");
