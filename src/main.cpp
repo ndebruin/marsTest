@@ -3,34 +3,27 @@
 // #include <HardwareSerial.h>
 #include <SPI.h>
 #include "LSM6DSOSensor.h"
+#include "ASM330LHHSensor.h"
+#include "LIS2MDLSensor.h"
+#include "LPS22HBSensor.h"
 
 // initialize our sensor buses 
-SPIClass SENSORS_SPI(PD7, PG9, PG11);
+SPIClass SENSORS_SPI(SENSORS_SPI_MOSI, SENSORS_SPI_MISO, SENSORS_SPI_SCK);
 // TwoWire GPS_I2C(GPS_I2C_SDA, GPS_I2C_SCL);
 // HardwareSerial GPS_SERIAL(GPS_SERIAL_RX, GPS_SERIAL_TX);
 // TwoWire CONNECTOR_I2C(CONNECTOR_I2C_SDA, CONNECTOR_I2C_SCL);
 // SPIClass CAMERA_SPI(CAMERA_MOSI, CAMERA_MISO, CAMERA_SCK);
 // HardwareSerial RADIO_SERIAL(RADIO_SERIAL_RX, RADIO_SERIAL_TX);
 
-LSM6DSOSensor accGyr(&SENSORS_SPI, SENSORS_LSM_CS);
+LSM6DSOSensor lsm(&SENSORS_SPI, SENSORS_LSM_CS);
+ASM330LHHSensor asmSens(&SENSORS_SPI, SENSORS_ASM_CS);
+LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
+LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
 void setup()
 {
     SerialUSB.begin(); while(!SerialUSB.available()){};
-    pinMode(LED_RED, OUTPUT);
-    #ifdef HAL_SPI_MODULE_ENABLED
-    SerialUSB.println("spi enabled!");
-    #endif
-    SerialUSB.println("help");
-
-    const PinMap *map = PinMap_SPI_MOSI;
-    while (map->pin != NC) {
-        SerialUSB.print("pin: 0x");
-        SerialUSB.print(map->pin, HEX);
-        SerialUSB.print("  PD_7 is: 0x");
-        SerialUSB.println(PD_7, HEX);
-        map++;
-    }
+    pinMode(LED_GREEN, OUTPUT);
 
 
 
@@ -38,69 +31,75 @@ void setup()
 
     SENSORS_SPI.begin();
 
-        SerialUSB.print("PD7  MODER: "); SerialUSB.println((GPIOD->MODER >> 14) & 0x3); // expect 2 (AF)
-    SerialUSB.print("PD7  AFR:   "); SerialUSB.println((GPIOD->AFR[0] >> 28) & 0xF); // expect 5 (AF5_SPI1)
-    SerialUSB.print("PG9  MODER: "); SerialUSB.println((GPIOG->MODER >> 18) & 0x3); // expect 2
-    SerialUSB.print("PG11 MODER: "); SerialUSB.println((GPIOG->MODER >> 22) & 0x3); // expect 2
+    SerialUSB.println(lsm.begin());
+    SerialUSB.println("lsm begin");
+    lsm.Enable_X();
+    lsm.Enable_G();
+    lsm.Set_G_FS(2000);
+    lsm.Set_G_ODR(100);
+    lsm.Set_X_FS(32);
+    lsm.Set_X_ODR(500);
 
+    SerialUSB.println(asmSens.begin());
+    SerialUSB.println("asm begin");
+    asmSens.Enable_X();
+    asmSens.Enable_G();
+    asmSens.Set_G_FS(4000);
+    asmSens.Set_G_ODR(100);
+    asmSens.Set_X_FS(16);
+    asmSens.Set_X_ODR(500);
 
+    SerialUSB.println(lis.begin());
+    SerialUSB.println(lis.Enable());
+    SerialUSB.println("lis begin");
+    lis.SetOutputDataRate(100);
 
+    SerialUSB.println(lps.begin());
+    SerialUSB.println(lps.Enable());
+    SerialUSB.println("lps begin");
+    lps.SetODR(100);
 
-SerialUSB.println("help");
-    // Send a test byte with CS manually controlled
-    pinMode(SENSORS_LSM_CS, OUTPUT);
-    digitalWrite(SENSORS_LSM_CS, HIGH);
-
-    digitalWrite(SENSORS_LSM_CS, LOW);
-    byte result = SENSORS_SPI.transfer(0xAA);
-    digitalWrite(SENSORS_LSM_CS, HIGH);
-
-    SerialUSB.print("Transfer result: 0x");
-    SerialUSB.println(result, HEX);
-
-
-
-
-
-    SerialUSB.println(accGyr.begin());
-SerialUSB.println("help");
-    accGyr.Enable_X();
-    accGyr.Enable_G();
-    accGyr.Set_G_FS(2000);
-    accGyr.Set_G_ODR(100);
-    accGyr.Set_X_FS(32);
-    accGyr.Set_X_ODR(500);
 }
 
 void loop()
 {
     
-    digitalWrite(LED_RED,HIGH);
-    digitalWrite(PD7,HIGH);
-    
-    delay(100);
-    digitalWrite(LED_RED,LOW);
-    digitalWrite(PD7,LOW);
+    digitalToggle(LED_GREEN);
     
     delay(100);
 
-          int32_t accelerometer[3];
-  int32_t gyroscope[3];
-  accGyr.Get_X_Axes(accelerometer);
-  accGyr.Get_G_Axes(gyroscope);
+    int32_t lsmAccel[3];
+    int32_t asmAccel[3];
+    int32_t mag[3];
+    float pressure, temperature;
+    lsm.Get_X_Axes(lsmAccel);
+    asmSens.Get_G_Axes(asmAccel);
+    lis.GetAxes(mag);
+    lps.GetPressure(&pressure);
+    lps.GetTemperature(&temperature);
 
-  // Output data.
-  SerialUSB.print("| Acc[g]: ");
-  SerialUSB.print(accelerometer[0]*2/1000.0);
-  SerialUSB.print(" ");
-  SerialUSB.print(accelerometer[1]*2/1000.0);
-  SerialUSB.print(" ");
-  SerialUSB.print(accelerometer[2]*2/1000.0);
-  SerialUSB.print(" | Gyr[mdps]: ");
-  SerialUSB.print(gyroscope[0]);
-  SerialUSB.print(" ");
-  SerialUSB.print(gyroscope[1]);
-  SerialUSB.print(" ");
-  SerialUSB.print(gyroscope[2]);
-  SerialUSB.println(" |");
+    // Output data.
+    SerialUSB.print(" | LSM[g]: ");
+    SerialUSB.print(lsmAccel[0]*2/1000.0);
+    SerialUSB.print(" ");
+    SerialUSB.print(lsmAccel[1]*2/1000.0);
+    SerialUSB.print(" ");
+    SerialUSB.print(lsmAccel[2]*2/1000.0);
+    SerialUSB.print(" | ASM[g]: ");
+    SerialUSB.print(asmAccel[0]/1000.0);
+    SerialUSB.print(" ");
+    SerialUSB.print(asmAccel[1]/1000.0);
+    SerialUSB.print(" ");
+    SerialUSB.print(asmAccel[2]/1000.0);
+    SerialUSB.print(" | LIS[mgauss]: ");
+    SerialUSB.print(mag[0]*1.5);
+    SerialUSB.print(" ");
+    SerialUSB.print(mag[1]*1.5);
+    SerialUSB.print(" ");
+    SerialUSB.print(mag[2]*1.5);
+    SerialUSB.print(" | Pres[hPa]: ");
+    SerialUSB.print(pressure, 2);
+    SerialUSB.print(" | Temp[C]: ");
+    SerialUSB.print(temperature, 2);
+    SerialUSB.println(" |");
 }
