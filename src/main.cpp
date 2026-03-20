@@ -17,6 +17,10 @@ TwoWire CONNECTOR_I2C(CONNECTOR_I2C_SDA, CONNECTOR_I2C_SCL);
 SPIClass CAMERA_SPI(CAMERA_MOSI, CAMERA_MISO, CAMERA_SCK);
 HardwareSerial RADIO_SERIAL(RADIO_SERIAL_RX, RADIO_SERIAL_TX);
 
+// #define SENSOR_DEBUG
+
+
+
 // const char* callsign = "KV0R";
 // LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
 
@@ -68,12 +72,15 @@ ASM330LHHSensor asmSens(&SENSORS_SPI, SENSORS_ASM_CS);
 LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
 LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
+void sensorInit();
+
 void setup()
 {
     SerialUSB.begin(); while(!SerialUSB.available()){};
     pinMode(LED_GREEN, OUTPUT);
     digitalWrite(LED_GREEN, HIGH);
 
+    sensorInit();
 
     // // build our config
     // RadioConfig config;
@@ -104,15 +111,25 @@ void setup()
 
     // radioModule.setMode(RadioMode::Normal);
 
+}
 
+void sensorInit(){
+    pinMode(SENSORS_ASM_CS, OUTPUT); digitalWrite(SENSORS_ASM_CS, HIGH);
+    pinMode(SENSORS_LSM_CS, OUTPUT); digitalWrite(SENSORS_LSM_CS, HIGH);
+    pinMode(SENSORS_LIS_CS, OUTPUT); digitalWrite(SENSORS_LIS_CS, HIGH);
+    pinMode(SENSORS_LPS_CS, OUTPUT); digitalWrite(SENSORS_LPS_CS, HIGH);
 
-    Serial.println("spi begin");
+    #ifdef SENSOR_DEBUG
+        SerialUSB.println("spi begin");
+    #endif
 
     SENSORS_SPI.begin();
 
-    Serial.println("spi begin");
-    SerialUSB.println(lsm.begin());
-    SerialUSB.println("lsm begin");
+    LSM6DSO32StatusTypeDef lsmBeginStatus = lsm.begin();
+    #ifdef SENSOR_DEBUG
+        SerialUSB.println(lsmBeginStatus);
+        SerialUSB.println("lsm begin");
+    #endif
     lsm.Set_G_FS(2000);
     lsm.Set_G_ODR(100);
     lsm.Set_X_FS(32);
@@ -120,27 +137,41 @@ void setup()
     lsm.Enable_X();
     lsm.Enable_G();
 
-    SerialUSB.println(asmSens.begin());
-    SerialUSB.println("asm begin");
+    delay(20);
+
+
+    ASM330LHHStatusTypeDef asmBeginStatus = asmSens.begin();
+    #ifdef SENSOR_DEBUG
+        SerialUSB.println(asmBeginStatus);
+        SerialUSB.println("asm begin");
+    #endif    
     asmSens.Set_G_FS(4000);
     asmSens.Set_G_ODR(100);
     asmSens.Set_X_FS(16);
     asmSens.Set_X_ODR(500);
     asmSens.Enable_X();
     asmSens.Enable_G();
+    
+    delay(20);
 
-    SerialUSB.println(lis.begin());
+    LIS2MDLStatusTypeDef lisBeginStatus = lis.begin();
+    #ifdef SENSOR_DEBUG
+        SerialUSB.println(lisBeginStatus);
+        SerialUSB.println("lis begin");
+    #endif
     lis.SetOutputDataRate(100);
-    SerialUSB.println(lis.Enable());
-    SerialUSB.println("lis begin");
+    lis.Enable();
     
-
-    SerialUSB.println(lps.begin());
+    delay(20);
+    
+    LPS22HBStatusTypeDef lpsBeginStatus = lps.begin();
+    #ifdef SENSOR_DEBUG
+        SerialUSB.println(lpsBeginStatus);
+        SerialUSB.println("lps begin");
+    #endif
     lps.SetODR(100);
-    SerialUSB.println(lps.Enable());
-    SerialUSB.println("lps begin");
+    lps.Enable();
     
-
 }
 
 void loop()
@@ -174,11 +205,11 @@ void loop()
     SerialUSB.print(" ");
     SerialUSB.print(asmAccel[2]/1000.0);
     SerialUSB.print(" | LIS[mgauss]: ");
-    SerialUSB.print(mag[0]*1.5);
+    SerialUSB.print(mag[0]);
     SerialUSB.print(" ");
-    SerialUSB.print(mag[1]*1.5);
+    SerialUSB.print(mag[1]);
     SerialUSB.print(" ");
-    SerialUSB.print(mag[2]*1.5);
+    SerialUSB.print(mag[2]);
     SerialUSB.print(" | Pres[hPa]: ");
     SerialUSB.print(pressure, 2);
     SerialUSB.print(" | Temp[C]: ");
