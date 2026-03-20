@@ -20,7 +20,6 @@ HardwareSerial RADIO_SERIAL(RADIO_SERIAL_RX, RADIO_SERIAL_TX);
 // #define SENSOR_DEBUG
 
 
-
 // const char* callsign = "KV0R";
 // LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
 
@@ -139,7 +138,6 @@ void sensorInit(){
 
     delay(20);
 
-
     ASM330LHHStatusTypeDef asmBeginStatus = asmSens.begin();
     #ifdef SENSOR_DEBUG
         SerialUSB.println(asmBeginStatus);
@@ -171,12 +169,10 @@ void sensorInit(){
     #endif
     lps.SetODR(100);
     lps.Enable();
-    
 }
 
 void loop()
 {
-    
     digitalToggle(LED_GREEN);
     
     delay(100);
