@@ -8,6 +8,10 @@
 #include "LPS22HBSensor.h"
 #include "../LoRaE22/LoRaE22.h"
 #include "../include/RadioConfigs.h"
+#include "teseo_liv3f_class.h"
+#include "MicroNMEA.h"
+
+
 
 // initialize our sensor buses 
 SPIClass SENSORS_SPI(SENSORS_SPI_MOSI, SENSORS_SPI_MISO, SENSORS_SPI_SCK);
@@ -70,6 +74,69 @@ LSM6DSO32Sensor lsm(&SENSORS_SPI, SENSORS_LSM_CS);
 ASM330LHHSensor asmSens(&SENSORS_SPI, SENSORS_ASM_CS);
 LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
 LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
+TeseoLIV3F gps(&GPS_I2C, GPS_RESET, GPS_INT);
+
+#define DEFAULT_DEVICE_ADDRESS 0x3A
+#define DEFAULT_DEVICE_PORT 0xFF
+#define I2C_DELAY 1
+
+//I2C read data structures
+char buff[32];
+int idx = 0;
+
+//MicroNMEA library structures
+char nmeaBuffer[100];
+MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
+
+
+bool ledState = LOW;
+volatile bool ppsTriggered = false;
+
+void ppsHandler(void);
+
+
+void ppsHandler(void)
+{
+  ppsTriggered = true;
+}
+
+
+void gpsHardwareReset()
+{
+   //reset the device
+   digitalWrite(GPS_RESET, LOW);
+   delay(50);
+   digitalWrite(GPS_RESET, HIGH);
+
+   //wait for reset to apply
+   delay(2000);
+
+}
+
+
+//Read 32 bytes from I2C
+void readI2C(char *inBuff)
+{
+   GPS_I2C.beginTransmission(DEFAULT_DEVICE_ADDRESS);
+   GPS_I2C.write((uint8_t) DEFAULT_DEVICE_PORT);
+   GPS_I2C.endTransmission(false);
+   GPS_I2C.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 32);
+   int i = 0;
+   while (GPS_I2C.available())
+   {
+      inBuff[i]= GPS_I2C.read();
+      i++;
+   }
+}
+
+//Send a NMEA command via I2C
+void sendCommand(char *cmd)
+{
+   GPS_I2C.beginTransmission(DEFAULT_DEVICE_ADDRESS);
+   GPS_I2C.write((uint8_t) DEFAULT_DEVICE_PORT);
+   MicroNMEA::sendSentence(GPS_I2C, cmd);
+   GPS_I2C.endTransmission(true);
+}
 
 void sensorInit();
 
@@ -80,6 +147,47 @@ void setup()
     digitalWrite(LED_GREEN, HIGH);
 
     sensorInit();
+
+    GPS_I2C.begin();
+    // GPS_SERIAL.begin(9600);
+
+    SerialUSB.println(gps.init());
+
+       //Start the module
+   pinMode(GPS_RESET, OUTPUT);
+   digitalWrite(GPS_RESET, HIGH);
+   SerialUSB.println("Resetting GPS module ...");
+   gpsHardwareReset();
+   SerialUSB.println("... done");
+
+   // Change the echoing messages to the ones recognized by the MicroNMEA library
+   sendCommand((char *)"$PSTMSETPAR,1231,0x00000042");
+   sendCommand((char *)"$PSTMSAVEPAR");
+
+   //Reset the device so that the changes could take plaace
+   sendCommand((char *)"$PSTMSRR");
+
+   delay(4000);
+
+   //Reinitialize I2C after the reset
+   GPS_I2C.begin();
+
+   //clear i2c buffer
+   char c;
+   idx = 0;
+   memset(buff, 0, 32);
+   do
+   {
+      if (idx == 0)
+      {
+         readI2C(buff);
+         delay(I2C_DELAY);
+      }
+      c = buff[idx];
+      idx++;
+      idx %= 32;
+   }
+   while ((uint8_t) c != 0xFF);
 
     // // build our config
     // RadioConfig config;
@@ -171,11 +279,15 @@ void sensorInit(){
     lps.Enable();
 }
 
+unsigned long long lastGPS = 0;
+
 void loop()
 {
     digitalToggle(LED_GREEN);
     
-    delay(100);
+    delay(50);
+
+    gps.update();
 
     int32_t lsmAccel[3];
     int32_t asmAccel[3];
@@ -188,29 +300,103 @@ void loop()
     lps.GetTemperature(&temperature);
 
     // Output data.
-    SerialUSB.print(" | LSM[g]: ");
-    SerialUSB.print(lsmAccel[0]/1000.0);
-    SerialUSB.print(" ");
-    SerialUSB.print(lsmAccel[1]/1000.0);
-    SerialUSB.print(" ");
-    SerialUSB.print(lsmAccel[2]/1000.0);
-    SerialUSB.print(" | ASM[g]: ");
-    SerialUSB.print(asmAccel[0]/1000.0);
-    SerialUSB.print(" ");
-    SerialUSB.print(asmAccel[1]/1000.0);
-    SerialUSB.print(" ");
-    SerialUSB.print(asmAccel[2]/1000.0);
-    SerialUSB.print(" | LIS[mgauss]: ");
-    SerialUSB.print(mag[0]);
-    SerialUSB.print(" ");
-    SerialUSB.print(mag[1]);
-    SerialUSB.print(" ");
-    SerialUSB.print(mag[2]);
-    SerialUSB.print(" | Pres[hPa]: ");
-    SerialUSB.print(pressure, 2);
-    SerialUSB.print(" | Temp[C]: ");
-    SerialUSB.print(temperature, 2);
-    SerialUSB.println(" |");
+    // SerialUSB.print(" | LSM[g]: ");
+    // SerialUSB.print(lsmAccel[0]/1000.0);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(lsmAccel[1]/1000.0);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(lsmAccel[2]/1000.0);
+    // SerialUSB.print(" | ASM[g]: ");
+    // SerialUSB.print(asmAccel[0]/1000.0);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(asmAccel[1]/1000.0);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(asmAccel[2]/1000.0);
+    // SerialUSB.print(" | LIS[mgauss]: ");
+    // SerialUSB.print(mag[0]);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(mag[1]);
+    // SerialUSB.print(" ");
+    // SerialUSB.print(mag[2]);
+    // SerialUSB.print(" | Pres[hPa]: ");
+    // SerialUSB.print(pressure, 2);
+    // SerialUSB.print(" | Temp[C]: ");
+    // SerialUSB.print(temperature, 2);
+    // SerialUSB.println(" |");
+    if(millis() - lastGPS > 1000){
+        // Output GPS information from previous second
+      SerialUSB.print("Valid fix: ");
+      SerialUSB.println(nmea.isValid() ? "yes" : "no");
+
+      SerialUSB.print("Nav. system: ");
+      if (nmea.getNavSystem())
+         SerialUSB.println(nmea.getNavSystem());
+      else
+         SerialUSB.println("none");
+
+      SerialUSB.print("Num. satellites: ");
+      SerialUSB.println(nmea.getNumSatellites());
+
+      SerialUSB.print("HDOP: ");
+      SerialUSB.println(nmea.getHDOP()/10., 1);
+
+      SerialUSB.print("Date/time: ");
+      SerialUSB.print(nmea.getYear());
+      SerialUSB.print('-');
+      SerialUSB.print(int(nmea.getMonth()));
+      SerialUSB.print('-');
+      SerialUSB.print(int(nmea.getDay()));
+      SerialUSB.print('T');
+      SerialUSB.print(int(nmea.getHour()));
+      SerialUSB.print(':');
+      SerialUSB.print(int(nmea.getMinute()));
+      SerialUSB.print(':');
+      SerialUSB.println(int(nmea.getSecond()));
+
+      long latitude_mdeg = nmea.getLatitude();
+      long longitude_mdeg = nmea.getLongitude();
+      SerialUSB.print("Latitude (deg): ");
+      SerialUSB.println(latitude_mdeg / 1000000., 6);
+
+      SerialUSB.print("Longitude (deg): ");
+      SerialUSB.println(longitude_mdeg / 1000000., 6);
+
+      long alt;
+      SerialUSB.print("Altitude (m): ");
+      if (nmea.getAltitude(alt))
+         SerialUSB.println(alt / 1000., 3);
+      else
+         SerialUSB.println("not available");
+
+      SerialUSB.print("Speed: ");
+      SerialUSB.println(nmea.getSpeed() / 1000., 3);
+      SerialUSB.print("Course: ");
+      SerialUSB.println(nmea.getCourse() / 1000., 3);
+      SerialUSB.println("-----------------------");
+      nmea.clear();
+      lastGPS = millis();
+    }
+    else{
+        char c ;
+      if (idx == 0)
+      {
+         readI2C(buff);
+         delay(I2C_DELAY);
+      }
+      //Fetch the character one by one
+      c = buff[idx];
+      idx++;
+      idx %= 32;
+      //If we have a valid character pass it to the library
+      if ((uint8_t) c != 0xFF)
+      {
+         SerialUSB.print(c);
+         nmea.process(c);
+      }
+    }
+
+
+       //if the board is waiting for a specific message to arrive
 
 
 //       if(radioModule.moduleReady()){
@@ -232,3 +418,7 @@ void loop()
 //     // SerialUSB.println("help");
 //   }
 }
+
+
+
+
