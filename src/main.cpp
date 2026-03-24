@@ -15,9 +15,9 @@
 // #include "MicroNMEA.h"
 
 
-
-
 // #define SENSOR_DEBUG
+#define SENSOR_PRINT
+// #define RADIO_DEBUG
 
 
 // initialize our sensor buses 
@@ -84,9 +84,10 @@ bool changeSerialPortConfig(RadioConfigTypes::SerialSpeeds baudRate, RadioConfig
 };
 
 
-
 void sensorInit();
 void sensorUpdate();
+void radioInit();
+void radioUpdate();
 
 
 void setup()
@@ -95,78 +96,75 @@ void setup()
     pinMode(LED_GREEN, OUTPUT);
     digitalWrite(LED_GREEN, HIGH);
 
+
     sensorInit();
-
-    // build our config
-    RadioConfig config;
-    // config.frequency = FREQUENCY;
-    config.address = ADDRESS;
-    config.networkId = NETWORKID;
-    config.encryptionKey = ENCRYPTIONKEY;
-    config.parityConfig = PARITYCONFIG;
-    config.serialSpeed = SERIALSPEED;
-    config.airDataRate = AIRDATARATE;
-    config.packetSize = PACKETSIZE;
-    config.worMode = WORMODE;
-    config.worPeriod = WORPERIOD;
-    config.relayMode = RELAYMODE;
-    config.destination = DESTINATIONMODE;
-    config.txPower = TXPOWER;
-    config.ambientRSSIEnabled = AMBIENTRSSI;
-    config.rssiReadingsEnabled = RSSIREADINGS;
-    config.listenBeforeTxEnable = LISTENBEFORETX;
-  
-    radioModule.setConfig(config);
-    radioModule.setFrequency(FREQUENCY);
-    radioModule.changeSerialPortCallback(changeSerialPortConfig);
-    int8_t code = radioModule.init(0);
-
-    SerialUSB.println("done initing");
-    SerialUSB.println(code);
-
-    radioModule.setMode(RadioMode::Normal);
-
+    radioInit();
 }
 
-
+unsigned long long counterBufferNotEmpty = 0;
 void loop()
 {
     digitalToggle(LED_GREEN);
     sensorUpdate();
+    radioUpdate();
     
     delay(50);
-
-
-
-
-   
-
-
-       //if the board is waiting for a specific message to arrive
-
-
-//       if(radioModule.moduleReady()){
-//     // SerialUSB.println("buffer empty and ready!");
-//     counterBufferNotEmpty = 0;
-//   }
-//   else{
-//     counterBufferNotEmpty++;
-//   }
-
-//   uint8_t buffer[3] = {'E', 'X', 'P'};
-//   // uint8_t label[3] = {'E', 'X', 'P'};
-//   // for(size_t i = 0; i<235;i++){
-//   //   buffer[i] = label[i%3];
-//   // }
-
-//   if((sizeof(buffer) + sizeof(callsign) + 1) * counterBufferNotEmpty < 1000){
-//     radioModule.sendMessage(buffer, 3);
-//     // SerialUSB.println("help");
-//   }
 }
 
 
+void radioInit(){
+   // build our config
+   RadioConfig config;
+   // config.frequency = FREQUENCY;
+   config.address = ADDRESS;
+   config.networkId = NETWORKID;
+   config.encryptionKey = ENCRYPTIONKEY;
+   config.parityConfig = PARITYCONFIG;
+   config.serialSpeed = SERIALSPEED;
+   config.airDataRate = AIRDATARATE;
+   config.packetSize = PACKETSIZE;
+   config.worMode = WORMODE;
+   config.worPeriod = WORPERIOD;
+   config.relayMode = RELAYMODE;
+   config.destination = DESTINATIONMODE;
+   config.txPower = dBm33;
+   config.ambientRSSIEnabled = AMBIENTRSSI;
+   config.rssiReadingsEnabled = RSSIREADINGS;
+   config.listenBeforeTxEnable = LISTENBEFORETX;
+  
+   radioModule.setConfig(config);
+   radioModule.setFrequency(FREQUENCY);
+   radioModule.changeSerialPortCallback(changeSerialPortConfig);
+   int8_t code = radioModule.init(0);
 
+   #ifdef RADIO_DEBUG
+      SerialUSB.println("done initing");
+      SerialUSB.println(code);
+   #endif
+
+   radioModule.setMode(RadioMode::Normal);
+}
+
+void radioUpdate(){
+   if(radioModule.moduleReady()){
+      // SerialUSB.println("buffer empty and ready!");
+      counterBufferNotEmpty = 0;
+   }
+   else{
+      counterBufferNotEmpty++;
+   }
+
+   uint8_t buffer[3] = {'E', 'X', 'P'};
+   // uint8_t label[3] = {'E', 'X', 'P'};
+   // for(size_t i = 0; i<235;i++){
+   //   buffer[i] = label[i%3];
+   // }
+
+   if((sizeof(buffer) + sizeof(callsign) + 1) * counterBufferNotEmpty < 1000){
+      radioModule.sendMessage(buffer, 3);
+      // SerialUSB.println("help");
+   }
+}
 
 
 
@@ -183,6 +181,10 @@ void sensorInit(){
     #endif
 
     SENSORS_SPI.begin();
+
+
+
+   delay(20);
 
     LSM6DSO32StatusTypeDef lsmBeginStatus = lsm.begin();
     #ifdef SENSOR_DEBUG
@@ -219,19 +221,26 @@ void sensorInit(){
     #endif
     lis.SetOutputDataRate(100);
     lis.Enable();
-    
+
     delay(20);
-    
-    LPS22HBStatusTypeDef lpsBeginStatus = lps.begin();
-    #ifdef SENSOR_DEBUG
-        SerialUSB.println(lpsBeginStatus);
-        SerialUSB.println("lps begin");
-    #endif
-    lps.SetODR(100);
-    lps.Enable();
+
+
+  LPS22HBStatusTypeDef lpsBeginStatus = lps.begin();
+   #ifdef SENSOR_DEBUG
+      SerialUSB.println(lpsBeginStatus);
+      SerialUSB.println("lps begin");
+   #endif
+   lps.SetODR(100);
+   lps.Enable();
+  //  float odr;
+  //  lps.GetODR(&odr);
+  //  SerialUSB.println(odr);
 }
 
-void updateSensors()
+
+
+
+void sensorUpdate()
 {
    int32_t lsmAccel[3];
    int32_t asmAccel[3];
@@ -243,7 +252,7 @@ void updateSensors()
    lps.GetPressure(&pressure);
    lps.GetTemperature(&temperature);
 
-   #ifdef SENSOR_DEBUG
+   #ifdef SENSOR_PRINT
    // Output data.
    SerialUSB.print(" | LSM[g]: ");
    SerialUSB.print(lsmAccel[0]/1000.0);

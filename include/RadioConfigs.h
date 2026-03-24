@@ -28,4 +28,4 @@
 #endif
 
 #define LISTENBEFORETX RadioConfigTypes::EnableListenBeforeTX::LBTDisabled
-#define TXPOWER RadioConfigTypes::TransmitPower::dBm30
+#define TXPOWER RadioConfigTypes::TransmitPower::dBm33
