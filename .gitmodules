@@ -1,9 +1,3 @@
 [submodule "board"]
 	path = board
 	url = https://github.com/WPI-HPRC/mars-board-definitions.git
-[submodule "LoRaE22"]
-	path = LoRaE22
-	url = https://github.com/WPI-HPRC/LoRaE22.git
-[submodule "Teseo-LIV3F-Driver"]
-	path = Teseo-LIV3F-Driver
-	url = https://github.com/WPI-HPRC/Teseo-LIV3F-Driver.git
