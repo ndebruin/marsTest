@@ -3,6 +3,7 @@
 #include <HardwareSerial.h>
 #include <SPI.h>
 
+
 #include "LSM6DSO32Sensor.h"
 #include "ASM330LHHSensor.h"
 #include "LIS2MDLSensor.h"
@@ -16,8 +17,8 @@
 
 
 // #define SENSOR_DEBUG
-#define SENSOR_PRINT
-// #define RADIO_DEBUG
+// #define SENSOR_PRINT
+#define RADIO_DEBUG
 
 
 // initialize our sensor buses 
@@ -34,8 +35,6 @@ LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
 LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
 // TeseoLIV3F gps(&GPS_I2C, GPS_RESET, GPS_INT);
-
-
 
 const char* callsign = "KV0R";
 LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
@@ -92,10 +91,9 @@ void radioUpdate();
 
 void setup()
 {
-    SerialUSB.begin(); while(!SerialUSB.available()){};
+    SerialUSB.begin(); //while(!SerialUSB.available()){};
     pinMode(LED_GREEN, OUTPUT);
     digitalWrite(LED_GREEN, HIGH);
-
 
     sensorInit();
     radioInit();
@@ -104,45 +102,65 @@ void setup()
 unsigned long long counterBufferNotEmpty = 0;
 void loop()
 {
-    digitalToggle(LED_GREEN);
-    sensorUpdate();
-    radioUpdate();
-    
-    delay(50);
+  digitalToggle(LED_GREEN);
+  sensorUpdate();
+  radioUpdate();
+  
+  delay(50);
 }
 
 
+
+
+
+
+
+
+
 void radioInit(){
-   // build our config
-   RadioConfig config;
-   // config.frequency = FREQUENCY;
-   config.address = ADDRESS;
-   config.networkId = NETWORKID;
-   config.encryptionKey = ENCRYPTIONKEY;
-   config.parityConfig = PARITYCONFIG;
-   config.serialSpeed = SERIALSPEED;
-   config.airDataRate = AIRDATARATE;
-   config.packetSize = PACKETSIZE;
-   config.worMode = WORMODE;
-   config.worPeriod = WORPERIOD;
-   config.relayMode = RELAYMODE;
-   config.destination = DESTINATIONMODE;
-   config.txPower = dBm33;
-   config.ambientRSSIEnabled = AMBIENTRSSI;
-   config.rssiReadingsEnabled = RSSIREADINGS;
-   config.listenBeforeTxEnable = LISTENBEFORETX;
+  // build our config
+  RadioConfig config;
+  config.address = ADDRESS;
+  config.networkId = NETWORKID;
+  config.encryptionKey = ENCRYPTIONKEY;
+  config.parityConfig = PARITYCONFIG;
+  config.serialSpeed = SERIALSPEED;
+  config.airDataRate = AIRDATARATE;
+  config.packetSize = PACKETSIZE;
+  config.worMode = WORMODE;
+  config.worPeriod = WORPERIOD;
+  config.relayMode = RELAYMODE;
+  config.destination = DESTINATIONMODE;
+  config.txPower = dBm33;
+  config.ambientRSSIEnabled = AMBIENTRSSI;
+  config.rssiReadingsEnabled = RSSIREADINGS;
+  config.listenBeforeTxEnable = LISTENBEFORETX;
+  radioModule.setConfig(config);
+  radioModule.setFrequency(FREQUENCY);
+
+  radioModule.changeSerialPortCallback(changeSerialPortConfig);
+  radioModule.setTimeout(2000);
+
+
+  #ifdef RADIO_DEBUG
+    uint8_t configBuffer[9];
+    radioModule.buildConfigBuffer((unsigned char*)&configBuffer);
+    SerialUSB.print("desired config registers: ");
+    for (size_t i; i<sizeof(configBuffer);i++){
+      SerialUSB.printf("%0X ",configBuffer[i]);
+    }
+    SerialUSB.println("");
+  #endif
+
+  int8_t code = radioModule.init(3);
+  radioModule.setMode(RadioMode::Normal);
+
+  #ifdef RADIO_DEBUG
+    SerialUSB.println("done initing");
+    SerialUSB.println(code);
+  #endif
+
   
-   radioModule.setConfig(config);
-   radioModule.setFrequency(FREQUENCY);
-   radioModule.changeSerialPortCallback(changeSerialPortConfig);
-   int8_t code = radioModule.init(0);
-
-   #ifdef RADIO_DEBUG
-      SerialUSB.println("done initing");
-      SerialUSB.println(code);
-   #endif
-
-   radioModule.setMode(RadioMode::Normal);
 }
 
 void radioUpdate(){
@@ -161,7 +179,7 @@ void radioUpdate(){
    // }
 
    if((sizeof(buffer) + sizeof(callsign) + 1) * counterBufferNotEmpty < 1000){
-      radioModule.sendMessage(buffer, 3);
+      radioModule.sendMessage(buffer, sizeof(buffer));
       // SerialUSB.println("help");
    }
 }
