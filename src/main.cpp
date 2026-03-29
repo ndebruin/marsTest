@@ -12,6 +12,8 @@
 #include "LoRaE22.h"
 #include "RadioConfigs.h"
 
+#include "PwmInput.h"
+
 // #include "teseo_liv3f_class.h"
 // #include "MicroNMEA.h"
 
@@ -35,6 +37,8 @@ LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
 LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
 // TeseoLIV3F gps(&GPS_I2C, GPS_RESET, GPS_INT);
+
+PwmInput encoder1(ENCODER1_PWM);
 
 const char* callsign = "KV0R";
 LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
@@ -91,12 +95,14 @@ void radioUpdate();
 
 void setup()
 {
-    SerialUSB.begin(); //while(!SerialUSB.available()){};
+    SerialUSB.begin(); while(!SerialUSB.available()){};
     pinMode(LED_GREEN, OUTPUT);
     digitalWrite(LED_GREEN, HIGH);
 
+    SerialUSB.println(encoder1.begin());
+
     sensorInit();
-    radioInit();
+    // radioInit();
 }
 
 unsigned long long counterBufferNotEmpty = 0;
@@ -104,7 +110,12 @@ void loop()
 {
   digitalToggle(LED_GREEN);
   sensorUpdate();
-  radioUpdate();
+  // radioUpdate();
+  SerialUSB.print(" freq: "); SerialUSB.print(encoder1.getFrequency());
+  SerialUSB.print(" duty cycle: "); SerialUSB.print(encoder1.getDutyCycle());
+  SerialUSB.println("");
+  
+
   
   delay(50);
 }

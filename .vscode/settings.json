@@ -1,0 +1,10 @@
+{
+    "search.useIgnoreFiles": false,
+    "search.exclude": {
+        ".pio/build/**": true,
+        "**/firmware.map": true
+    },
+    "files.exclude": {
+        "**/firmware.map": true
+    }
+}
