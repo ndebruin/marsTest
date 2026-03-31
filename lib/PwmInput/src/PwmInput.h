@@ -14,7 +14,7 @@ public:
         channelFalling = getMatchingChannel(channelRising);
     
         timer = new HardwareTimer(Instance);
-        uint32_t PrescalerFactor = 1;
+        uint32_t PrescalerFactor = 2;
         timer->setPrescaleFactor(PrescalerFactor);
         timer->setOverflow(0x10000); // Max Period value to have the largest possible time to detect rising edge and avoid timer rollover
         timer->attachInterrupt(channelRising, [this] { TIMINPUT_Capture_Rising_IT_callback(); });
@@ -24,6 +24,9 @@ public:
         timer->resume();
 
         input_freq = timer->getTimerClkFreq() / timer->getPrescaleFactor();
+        // SerialUSB.println(timer->getTimerClkFreq());
+        // SerialUSB.println(timer->getPrescaleFactor());
+        // SerialUSB.println(input_freq);
     
         return 0;
     };

@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <HardwareSerial.h>
 #include <SPI.h>
+#include <Servo.h>
 
 
 #include "LSM6DSO32Sensor.h"
@@ -19,8 +20,8 @@
 
 
 // #define SENSOR_DEBUG
-// #define SENSOR_PRINT
-#define RADIO_DEBUG
+#define SENSOR_PRINT
+// #define RADIO_DEBUG
 
 
 // initialize our sensor buses 
@@ -38,7 +39,9 @@ LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
 // TeseoLIV3F gps(&GPS_I2C, GPS_RESET, GPS_INT);
 
-PwmInput encoder1(ENCODER1_PWM);
+// PwmInput encoder1(ENCODER2_PWM);
+
+Servo servo1 = Servo();
 
 const char* callsign = "KV0R";
 LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
@@ -99,7 +102,10 @@ void setup()
     pinMode(LED_GREEN, OUTPUT);
     digitalWrite(LED_GREEN, HIGH);
 
-    SerialUSB.println(encoder1.begin());
+    // SerialUSB.println(encoder1.begin());
+    servo1.attach(PWM_OUT3);
+
+
 
     sensorInit();
     // radioInit();
@@ -111,9 +117,11 @@ void loop()
   digitalToggle(LED_GREEN);
   sensorUpdate();
   // radioUpdate();
-  SerialUSB.print(" freq: "); SerialUSB.print(encoder1.getFrequency());
-  SerialUSB.print(" duty cycle: "); SerialUSB.print(encoder1.getDutyCycle());
-  SerialUSB.println("");
+  // SerialUSB.print(" freq: "); SerialUSB.print(encoder1.getFrequency());
+  // SerialUSB.print(" duty cycle: "); SerialUSB.print(encoder1.getDutyCycle());
+  // SerialUSB.println("");`
+
+  servo1.write(90);
   
 
   
