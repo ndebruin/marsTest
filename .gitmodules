@@ -4,3 +4,9 @@
 [submodule "lib/LoRaE22"]
 	path = lib/LoRaE22
 	url = https://github.com/WPI-HPRC/LoRaE22.git
+[submodule "lib/flatbuffers"]
+	path = lib/flatbuffers
+	url = https://github.com/google/flatbuffers.git
+[submodule "telemetry-2026"]
+	path = telemetry-2026
+	url = https://github.com/WPI-HPRC/telemetry-2026.git

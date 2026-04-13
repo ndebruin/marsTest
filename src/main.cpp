@@ -15,8 +15,8 @@
 
 #include "PwmInput.h"
 
-// #include "teseo_liv3f_class.h"
-// #include "MicroNMEA.h"
+#include "flatbuffers/flatbuffers.h"
+#include "Rocket30KTelemetryPacket_generated.h"
 
 
 // #define SENSOR_DEBUG
@@ -37,11 +37,8 @@ ASM330LHHSensor asmSens(&SENSORS_SPI, SENSORS_ASM_CS);
 LIS2MDLSensor lis(&SENSORS_SPI, SENSORS_LIS_CS);
 LPS22HBSensor lps(&SENSORS_SPI, SENSORS_LPS_CS);
 
-// TeseoLIV3F gps(&GPS_I2C, GPS_RESET, GPS_INT);
-
 // PwmInput encoder1(ENCODER2_PWM);
-
-Servo servo1 = Servo();
+// Servo servo1 = Servo();
 
 const char* callsign = "KV0R";
 LoRaE22 radioModule(&RADIO_SERIAL, RADIO_M0, RADIO_M1, RADIO_AUX, callsign);
@@ -98,17 +95,21 @@ void radioUpdate();
 
 void setup()
 {
-    SerialUSB.begin(); while(!SerialUSB.available()){};
-    pinMode(LED_GREEN, OUTPUT);
-    digitalWrite(LED_GREEN, HIGH);
-
-    // SerialUSB.println(encoder1.begin());
-    servo1.attach(PWM_OUT3);
+  SerialUSB.begin(); while(!SerialUSB.available()){};
+  pinMode(LED_GREEN, OUTPUT);
+  digitalWrite(LED_GREEN, HIGH);
 
 
+  // SerialUSB.println(encoder1.begin());
+  // servo1.attach(PWM_OUT3);
 
-    sensorInit();
-    // radioInit();
+
+  flatbuffers::FlatBufferBuilder builder;
+
+  auto packet = hprc::CreateRocket30KTelemetryPacket(builder);
+  
+  sensorInit();
+  // radioInit();
 }
 
 unsigned long long counterBufferNotEmpty = 0;
@@ -117,19 +118,19 @@ void loop()
   digitalToggle(LED_GREEN);
   sensorUpdate();
   // radioUpdate();
+
+  
+
+
+
+
+
   // SerialUSB.print(" freq: "); SerialUSB.print(encoder1.getFrequency());
   // SerialUSB.print(" duty cycle: "); SerialUSB.print(encoder1.getDutyCycle());
   // SerialUSB.println("");`
-
-  servo1.write(90);
-  
-
-  
+  // servo1.write(90);
   delay(50);
 }
-
-
-
 
 
 
@@ -203,10 +204,6 @@ void radioUpdate(){
    }
 }
 
-
-
-
-
 void sensorInit(){
     pinMode(SENSORS_ASM_CS, OUTPUT); digitalWrite(SENSORS_ASM_CS, HIGH);
     pinMode(SENSORS_LSM_CS, OUTPUT); digitalWrite(SENSORS_LSM_CS, HIGH);
@@ -273,9 +270,6 @@ void sensorInit(){
   //  lps.GetODR(&odr);
   //  SerialUSB.println(odr);
 }
-
-
-
 
 void sensorUpdate()
 {

@@ -3,3 +3,8 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+lib/telemetry-generated
+tools
+tools/flatc
+tools/flatc.exe
+tools/.flatc_version
