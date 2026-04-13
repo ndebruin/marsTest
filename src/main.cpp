@@ -16,7 +16,7 @@
 #include "PwmInput.h"
 
 #include "flatbuffers/flatbuffers.h"
-#include "Rocket30KTelemetryPacket_generated.h"
+#include "SensorPacket_generated.h"
 
 
 // #define SENSOR_DEBUG
@@ -88,7 +88,7 @@ bool changeSerialPortConfig(RadioConfigTypes::SerialSpeeds baudRate, RadioConfig
 
 
 void sensorInit();
-void sensorUpdate();
+hprc::Sensors sensorUpdate();
 void radioInit();
 void radioUpdate();
 
@@ -104,9 +104,9 @@ void setup()
   // servo1.attach(PWM_OUT3);
 
 
-  flatbuffers::FlatBufferBuilder builder;
 
-  auto packet = hprc::CreateRocket30KTelemetryPacket(builder);
+
+  
   
   sensorInit();
   // radioInit();
@@ -116,11 +116,17 @@ unsigned long long counterBufferNotEmpty = 0;
 void loop()
 {
   digitalToggle(LED_GREEN);
-  sensorUpdate();
-  // radioUpdate();
 
   
+  hprc::Sensors sensors = sensorUpdate();
+  // radioUpdate();
 
+  flatbuffers::FlatBufferBuilder builder;
+
+  auto packet = hprc::CreateSensorPacket(builder, &sensors);
+
+  builder.Finish(packet);
+  // we can now transmit the packet
 
 
 
@@ -271,42 +277,57 @@ void sensorInit(){
   //  SerialUSB.println(odr);
 }
 
-void sensorUpdate()
+hprc::Sensors sensorUpdate()
 {
-   int32_t lsmAccel[3];
-   int32_t asmAccel[3];
-   int32_t mag[3];
-   float pressure, temperature;
-   lsm.Get_X_Axes(lsmAccel);
-   asmSens.Get_X_Axes(asmAccel);
-   lis.GetAxes(mag);
-   lps.GetPressure(&pressure);
-   lps.GetTemperature(&temperature);
+  int32_t lsmAccel[3];
+  int32_t lsmGyro[3];
+  int32_t asmAccel[3];
+  int32_t asmGyro[3];
+  int32_t mag[3];
+  float pressure, temperature;
+  lsm.Get_X_Axes(lsmAccel);
+  lsm.Get_G_Axes(lsmGyro);
+  asmSens.Get_X_Axes(asmAccel);
+  asmSens.Get_G_Axes(asmGyro);
+  lis.GetAxes(mag);
+  lps.GetPressure(&pressure);
+  lps.GetTemperature(&temperature);
 
-   #ifdef SENSOR_PRINT
-   // Output data.
-   SerialUSB.print(" | LSM[g]: ");
-   SerialUSB.print(lsmAccel[0]/1000.0);
-   SerialUSB.print(" ");
-   SerialUSB.print(lsmAccel[1]/1000.0);
-   SerialUSB.print(" ");
-   SerialUSB.print(lsmAccel[2]/1000.0);
-   SerialUSB.print(" | ASM[g]: ");
-   SerialUSB.print(asmAccel[0]/1000.0);
-   SerialUSB.print(" ");
-   SerialUSB.print(asmAccel[1]/1000.0);
-   SerialUSB.print(" ");
-   SerialUSB.print(asmAccel[2]/1000.0);
-   SerialUSB.print(" | LIS[mgauss]: ");
-   SerialUSB.print(mag[0]);
-   SerialUSB.print(" ");
-   SerialUSB.print(mag[1]);
-   SerialUSB.print(" ");
-   SerialUSB.print(mag[2]);
-   SerialUSB.print(" | Pres[hPa]: ");
-   SerialUSB.print(pressure, 2);
-   SerialUSB.print(" | Temp[C]: ");
-   SerialUSB.print(temperature, 2);
-   SerialUSB.println(" |");
-   #endif
+  hprc::Sensors sensors = hprc::Sensors(
+                                lsmAccel[0], lsmAccel[1], lsmAccel[2], 
+                                lsmGyro[0], lsmGyro[1], lsmGyro[2],
+                                asmAccel[0], asmAccel[1], asmAccel[2], 
+                                asmGyro[0], asmGyro[1], asmGyro[2],
+                                mag[0], mag[1], mag[2],
+                                pressure, temperature
+  );
+
+  #ifdef SENSOR_PRINT
+  // Output data.
+  SerialUSB.print(" | LSM[g]: ");
+  SerialUSB.print(lsmAccel[0]/1000.0);
+  SerialUSB.print(" ");
+  SerialUSB.print(lsmAccel[1]/1000.0);
+  SerialUSB.print(" ");
+  SerialUSB.print(lsmAccel[2]/1000.0);
+  SerialUSB.print(" | ASM[g]: ");
+  SerialUSB.print(asmAccel[0]/1000.0);
+  SerialUSB.print(" ");
+  SerialUSB.print(asmAccel[1]/1000.0);
+  SerialUSB.print(" ");
+  SerialUSB.print(asmAccel[2]/1000.0);
+  SerialUSB.print(" | LIS[mgauss]: ");
+  SerialUSB.print(mag[0]);
+  SerialUSB.print(" ");
+  SerialUSB.print(mag[1]);
+  SerialUSB.print(" ");
+  SerialUSB.print(mag[2]);
+  SerialUSB.print(" | Pres[hPa]: ");
+  SerialUSB.print(pressure, 2);
+  SerialUSB.print(" | Temp[C]: ");
+  SerialUSB.print(temperature, 2);
+  SerialUSB.println(" |");
+  #endif
+
+  return sensors;
 }
